@@ -8,6 +8,7 @@ config SOC_FAMILY_INTEL_ADSP
 	select ARCH_SUPPORTS_COREDUMP
 	select CPU_HAS_DCACHE
 	select ARCH_HAS_USERSPACE if XTENSA_MMU
+	imply XTENSA_MMU_DOUBLE_MAP
 	select CPU_CACHE_INCOHERENT
 
 if SOC_FAMILY_INTEL_ADSP
@@ -92,11 +93,11 @@ config ADSP_INIT_HPSRAM
 	  Need to init HP SRAM.
 
 config ADSP_POWER_DOWN_HPSRAM
-	bool
+	bool "Switch off HP SRAM during power down"
 	default n if ZTEST
 	default y
 	help
-	 Switch off HP SRAM during power down.
+	 Switch off HP SRAM during power down. Platform-configurable.
 
 config ADSP_DISABLE_L2CACHE_AT_BOOT
 	bool

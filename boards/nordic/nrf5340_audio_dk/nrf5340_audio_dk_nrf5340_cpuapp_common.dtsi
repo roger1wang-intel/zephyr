@@ -13,7 +13,7 @@
 		zephyr,uart-mcumgr = &uart0;
 		zephyr,bt-mon-uart = &uart0;
 		zephyr,bt-c2h-uart = &uart0;
-		zephyr,bt-hci-ipc = &ipc0;
+		zephyr,bt-hci = &bt_hci_ipc0;
 		watchdog0 = &wdt0;
 	};
 
@@ -70,6 +70,18 @@
 		green-pwm-led = &rgb1_green_pwm_led;
 		blue-pwm-led = &rgb1_blue_pwm_led;
 	};
+};
+
+&vregmain {
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+&vregradio {
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+&vregh {
+	status = "okay";
 };
 
 &adc {

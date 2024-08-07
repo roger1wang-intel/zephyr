@@ -21,6 +21,7 @@ LOG_MODULE_REGISTER(net_core, CONFIG_NET_CORE_LOG_LEVEL);
 #include <string.h>
 #include <errno.h>
 
+#include <zephyr/net/ipv4_autoconf.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/net_pkt.h>
@@ -55,7 +56,6 @@ LOG_MODULE_REGISTER(net_core, CONFIG_NET_CORE_LOG_LEVEL);
 #include "connection.h"
 #include "udp_internal.h"
 #include "tcp_internal.h"
-#include "ipv4_autoconf_internal.h"
 
 #include "net_stats.h"
 
@@ -255,12 +255,13 @@ static inline int check_ip(struct net_pkt *pkt)
 		}
 
 		/* If the destination address is our own, then route it
-		 * back to us.
+		 * back to us (if it is not already forwarded).
 		 */
-		if (net_ipv6_is_addr_loopback(
+		if ((net_ipv6_is_addr_loopback(
 				(struct in6_addr *)NET_IPV6_HDR(pkt)->dst) ||
 		    net_ipv6_is_my_addr(
-				(struct in6_addr *)NET_IPV6_HDR(pkt)->dst)) {
+				(struct in6_addr *)NET_IPV6_HDR(pkt)->dst)) &&
+		    !net_pkt_forwarding(pkt)) {
 			struct in6_addr addr;
 
 			/* Swap the addresses so that in receiving side
@@ -549,6 +550,8 @@ static inline int services_init(void)
 {
 	int status;
 
+	socket_service_init();
+
 	status = net_dhcpv4_init();
 	if (status) {
 		return status;
@@ -561,7 +564,10 @@ static inline int services_init(void)
 
 	net_dhcpv4_server_init();
 
+	dns_dispatcher_init();
 	dns_init_resolver();
+	mdns_init_responder();
+
 	websocket_init();
 
 	net_coap_init();

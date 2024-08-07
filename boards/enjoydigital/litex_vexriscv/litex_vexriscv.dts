@@ -23,12 +23,24 @@
 	};
 };
 
+&ctrl0 {
+	status = "okay";
+};
+
 &uart0 {
 	status = "okay";
 	current-speed = <115200>;
 };
 
 &timer0 {
+	status = "okay";
+};
+
+&mdio0 {
+	status = "okay";
+};
+
+&phy0 {
 	status = "okay";
 };
 

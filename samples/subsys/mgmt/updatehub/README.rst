@@ -34,7 +34,7 @@ Caveats
   application should build and run for other platforms with same connectivity.
 
 * The sample provides overlay files to enable other technologies like WIFI,
-  modem, 802.15.4 or OpenThread.  These technologies depends on
+  802.15.4 or OpenThread.  These technologies depends on
   hardware resources and the correspondent overlay was designed to be generic
   instead full optimized.
 
@@ -199,31 +199,14 @@ for details.
     The board disco_l475_iot1 is not supported.  The es-WIFI driver currently
     doesn't support UDP.
 
-Step 4.3: Build for Modem
--------------------------
-
-Modem needs add ``overlay-modem.conf``.  Now, a DTC overlay file is used to
-configure the glue between the modem and an arduino headers.  The modem config
-uses PPP over GSM modem, see :zephyr:code-sample:`gsm-modem` sample application.
-
-.. zephyr-app-commands::
-    :zephyr-app: zephyr/samples/subsys/mgmt/updatehub
-    :board: [ frdm_k64f | nrf52840dk/nrf52840 | nucleo_f767zi ]
-    :build-dir: app
-    :gen-args: -DEXTRA_CONF_FILE="overlay-modem.conf;overlay-prj.conf" \
-      -DDTC_OVERLAY_FILE=arduino.overlay
-    :goals: build
-    :compact:
-
-Step 4.4: Build for IEEE 802.15.4 [experimental]
+Step 4.3: Build for IEEE 802.15.4 [experimental]
 ------------------------------------------------
 
 For IEEE 802.15.4 needs add ``overlay-802154.conf``.  This requires two nodes:
 one will be the host and the second one will be the device under test.  The
-validation needs a Linux kernel >= 4.9 with all 6loWPAN support.  The start
-point is try reproduce the Zephyr :zephyr:code-sample:`wpan-usb`. It is out of scope
+validation needs a Linux kernel >= 4.9 with all 6loWPAN support. It is out of scope
 at this moment provide support since it is experimental.  The gateway was
-tested with both native linux driver and ``atusb`` and with ``wpanusb`` sample.
+tested with both native linux driver and ``atusb``.
 
 .. zephyr-app-commands::
     :zephyr-app: zephyr/samples/subsys/mgmt/updatehub
@@ -242,7 +225,7 @@ tested with both native linux driver and ``atusb`` and with ``wpanusb`` sample.
     :goals: build
     :compact:
 
-Step 4.6: Build for OpenThread Network [experimental]
+Step 4.4: Build for OpenThread Network [experimental]
 -----------------------------------------------------
 
 The OpenThread requires the ``overlay-ot.conf``.  It requires two nodes:

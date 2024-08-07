@@ -99,9 +99,13 @@ extensions = [
     "zephyr.api_overview",
 ]
 
-# Only use SVG converter when it is really needed, e.g. LaTeX.
-if tags.has("svgconvert"):  # pylint: disable=undefined-variable
+# Only use image conversion when it is really needed, e.g. LaTeX build.
+# Ensure "sphinxcontrib.rsvgconverter" is added before "sphinx.ext.imgconverter"
+# as it's better at converting SVG with extended features (like the ones from
+# draw.io) to PDF format).
+if tags.has("convertimages"):  # pylint: disable=undefined-variable
     extensions.append("sphinxcontrib.rsvgconverter")
+    extensions.append("sphinx.ext.imgconverter")
 
 templates_path = ["_templates"]
 
@@ -189,8 +193,8 @@ html_context = {
     "current_version": version,
     "versions": (
         ("latest", "/"),
+        ("3.7.0 (LTS)", "/3.7.0/"),
         ("3.6.0", "/3.6.0/"),
-        ("3.5.0", "/3.5.0/"),
         ("2.7.6 (LTS)", "/2.7.6/"),
     ),
     "display_gh_links": True,
@@ -321,6 +325,7 @@ external_content_contents = [
     (ZEPHYR_BASE, "samples/**/doc"),
     (ZEPHYR_BASE, "snippets/**/*.rst"),
     (ZEPHYR_BASE, "snippets/**/doc"),
+    (ZEPHYR_BASE, "tests/**/*.pts"),
 ]
 external_content_keep = [
     "reference/kconfig/*",

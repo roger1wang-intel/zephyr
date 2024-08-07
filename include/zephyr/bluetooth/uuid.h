@@ -3893,11 +3893,11 @@ struct bt_uuid_128 {
 #define BT_UUID_GATT_PHY_ASDESC \
 	BT_UUID_DECLARE_16(BT_UUID_GATT_PHY_ASDESC_VAL)
 /**
- *  @brief GATT Characteristic Preffered Units UUID Value
+ *  @brief GATT Characteristic Preferred Units UUID Value
  */
 #define BT_UUID_GATT_PREF_U_VAL 0x2b46
 /**
- *  @brief GATT Characteristic Preffered Units
+ *  @brief GATT Characteristic Preferred Units
  */
 #define BT_UUID_GATT_PREF_U \
 	BT_UUID_DECLARE_16(BT_UUID_GATT_PREF_U_VAL)
@@ -4120,12 +4120,11 @@ struct bt_uuid_128 {
 /**
  *  @brief Set Identity Resolving Key value
  */
-#define BT_UUID_CSIS_SET_SIRK_VAL 0x2b84
+#define BT_UUID_CSIS_SIRK_VAL 0x2b84
 /**
  *  @brief Set Identity Resolving Key
  */
-#define BT_UUID_CSIS_SET_SIRK \
-	BT_UUID_DECLARE_16(BT_UUID_CSIS_SET_SIRK_VAL)
+#define BT_UUID_CSIS_SIRK         BT_UUID_DECLARE_16(BT_UUID_CSIS_SIRK_VAL)
 /**
  *  @brief Set size value
  */

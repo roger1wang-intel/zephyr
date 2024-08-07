@@ -73,9 +73,9 @@ static K_FIFO_DEFINE(bt_hci_tx_queue);
  * REVISE: global (bulk, interrupt, iso) specific pools would be more
  * RAM usage efficient.
  */
-NET_BUF_POOL_FIXED_DEFINE(bt_hci_ep_pool,
-			  3, 512,
-			  sizeof(struct udc_buf_info), NULL);
+UDC_BUF_POOL_DEFINE(bt_hci_ep_pool,
+		    3, 512,
+		    sizeof(struct udc_buf_info), NULL);
 /* HCI RX/TX threads */
 static K_KERNEL_STACK_DEFINE(rx_thread_stack, CONFIG_BT_HCI_TX_STACK_SIZE);
 static struct k_thread rx_thread_data;
@@ -134,7 +134,7 @@ static uint8_t bt_hci_get_int_in(struct usbd_class_data *const c_data)
 
 static uint8_t bt_hci_get_bulk_in(struct usbd_class_data *const c_data)
 {
-	struct usbd_contex *uds_ctx = usbd_class_get_ctx(c_data);
+	struct usbd_context *uds_ctx = usbd_class_get_ctx(c_data);
 	struct bt_hci_data *data = usbd_class_get_private(c_data);
 	struct usbd_bt_hci_desc *desc = data->desc;
 
@@ -147,7 +147,7 @@ static uint8_t bt_hci_get_bulk_in(struct usbd_class_data *const c_data)
 
 static uint8_t bt_hci_get_bulk_out(struct usbd_class_data *const c_data)
 {
-	struct usbd_contex *uds_ctx = usbd_class_get_ctx(c_data);
+	struct usbd_context *uds_ctx = usbd_class_get_ctx(c_data);
 	struct bt_hci_data *data = usbd_class_get_private(c_data);
 	struct usbd_bt_hci_desc *desc = data->desc;
 
@@ -370,7 +370,7 @@ restart_out_transfer:
 static int bt_hci_request(struct usbd_class_data *const c_data,
 			  struct net_buf *buf, int err)
 {
-	struct usbd_contex *uds_ctx = usbd_class_get_ctx(c_data);
+	struct usbd_context *uds_ctx = usbd_class_get_ctx(c_data);
 	struct bt_hci_data *hci_data = usbd_class_get_private(c_data);
 	struct udc_buf_info *bi;
 

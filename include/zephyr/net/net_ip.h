@@ -16,6 +16,8 @@
 /**
  * @brief IPv4/IPv6 primitives and helpers
  * @defgroup ip_4_6 IPv4/IPv6 primitives and helpers
+ * @since 1.0
+ * @version 1.0.0
  * @ingroup networking
  * @{
  */
@@ -265,7 +267,7 @@ struct cmsghdr {
 /** @cond INTERNAL_HIDDEN */
 
 /* Alignment for headers and data. These are arch specific but define
- * them here atm if not found alredy.
+ * them here atm if not found already.
  */
 #if !defined(ALIGN_H)
 #define ALIGN_H(x) ROUND_UP(x, __alignof__(struct cmsghdr))
@@ -1122,7 +1124,7 @@ static inline bool net_ipv6_is_addr_solicited_node(const struct in6_addr *addr)
 static inline bool net_ipv6_is_addr_mcast_scope(const struct in6_addr *addr,
 						int scope)
 {
-	return (addr->s6_addr[0] == 0xff) && (addr->s6_addr[1] == scope);
+	return (addr->s6_addr[0] == 0xff) && ((addr->s6_addr[1] & 0xF) == scope);
 }
 
 /**
@@ -1805,7 +1807,7 @@ static inline int net_ipv6_pe_del_filter(struct in6_addr *addr)
 }
 #endif
 
-#include <syscalls/net_ip.h>
+#include <zephyr/syscalls/net_ip.h>
 
 /**
  * @}

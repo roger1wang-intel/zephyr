@@ -4,24 +4,45 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#if defined(CONFIG_BT_BAP_BROADCAST_SINK)
+#include <errno.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
-#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/autoconf.h>
+#include <zephyr/autoconf.h>
+#include <zephyr/bluetooth/addr.h>
 #include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/bluetooth/audio/bap.h>
 #include <zephyr/bluetooth/audio/bap_lc3_preset.h>
+#include <zephyr/bluetooth/audio/lc3.h>
 #include <zephyr/bluetooth/audio/pacs.h>
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/gap.h>
+#include <zephyr/bluetooth/iso.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/kernel.h>
+#include <zephyr/net/buf.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/sys/util.h>
+#include <zephyr/sys/util_macro.h>
+#include <zephyr/toolchain.h>
+
+#include "bap_common.h"
+#include "bstests.h"
 #include "common.h"
 
+#if defined(CONFIG_BT_BAP_BROADCAST_SINK)
 extern enum bst_result_t bst_result;
 
-CREATE_FLAG(broadcaster_found);
+CREATE_FLAG(flag_broadcaster_found);
 CREATE_FLAG(flag_base_received);
 CREATE_FLAG(flag_base_metadata_updated);
-CREATE_FLAG(pa_synced);
+CREATE_FLAG(flag_pa_synced);
 CREATE_FLAG(flag_syncable);
-CREATE_FLAG(pa_sync_lost);
+CREATE_FLAG(flag_pa_sync_lost);
 CREATE_FLAG(flag_received);
 CREATE_FLAG(flag_pa_request);
 CREATE_FLAG(flag_bis_sync_requested);
@@ -65,18 +86,6 @@ static K_SEM_DEFINE(sem_stopped, 0U, ARRAY_SIZE(streams));
  */
 static const uint32_t bis_index_mask = BIT_MASK(ARRAY_SIZE(streams) + 1U);
 static uint32_t bis_index_bitfield;
-
-static uint8_t count_bits(enum bt_audio_location chan_allocation)
-{
-	uint8_t cnt = 0U;
-
-	while (chan_allocation != 0) {
-		cnt += chan_allocation & 1U;
-		chan_allocation >>= 1;
-	}
-
-	return cnt;
-}
 
 static bool valid_base_subgroup(const struct bt_bap_base_subgroup *subgroup)
 {
@@ -126,9 +135,9 @@ static bool valid_base_subgroup(const struct bt_bap_base_subgroup *subgroup)
 		return false;
 	}
 
-	ret = bt_audio_codec_cfg_get_chan_allocation(&codec_cfg, &chan_allocation);
+	ret = bt_audio_codec_cfg_get_chan_allocation(&codec_cfg, &chan_allocation, false);
 	if (ret == 0) {
-		chan_cnt = count_bits(chan_allocation);
+		chan_cnt = bt_audio_get_chan_count(chan_allocation);
 	} else {
 		printk("Could not get subgroup channel allocation: %d\n", ret);
 		/* Channel allocation is an optional field, and omitting it implicitly means mono */
@@ -257,7 +266,7 @@ static bool scan_check_and_sync_broadcast(struct bt_data *data, void *user_data)
 	struct bt_uuid_16 adv_uuid;
 	uint32_t broadcast_id;
 
-	if (TEST_FLAG(broadcaster_found)) {
+	if (TEST_FLAG(flag_broadcaster_found)) {
 		/* no-op*/
 		return false;
 	}
@@ -285,7 +294,7 @@ static bool scan_check_and_sync_broadcast(struct bt_data *data, void *user_data)
 	printk("Found broadcaster with ID 0x%06X and addr %s and sid 0x%02X\n", broadcast_id,
 	       le_addr, info->sid);
 
-	SET_FLAG(broadcaster_found);
+	SET_FLAG(flag_broadcaster_found);
 
 	/* Store info for PA sync parameters */
 	memcpy(&broadcaster_info, info, sizeof(broadcaster_info));
@@ -314,7 +323,7 @@ static void bap_pa_sync_synced_cb(struct bt_le_per_adv_sync *sync,
 		printk("PA sync %p synced for broadcast sink with broadcast ID 0x%06X\n", sync,
 		       broadcaster_broadcast_id);
 
-		SET_FLAG(pa_synced);
+		SET_FLAG(flag_pa_synced);
 	}
 }
 
@@ -325,7 +334,7 @@ static void bap_pa_sync_terminated_cb(struct bt_le_per_adv_sync *sync,
 		printk("PA sync %p lost with reason %u\n", sync, info->reason);
 		pa_sync = NULL;
 
-		SET_FLAG(pa_sync_lost);
+		SET_FLAG(flag_pa_sync_lost);
 	}
 }
 
@@ -436,15 +445,15 @@ static void validate_stream_codec_cfg(const struct bt_bap_stream *stream)
 	/* The broadcast source sets the channel allocation in the BIS to
 	 * BT_AUDIO_LOCATION_FRONT_LEFT
 	 */
-	ret = bt_audio_codec_cfg_get_chan_allocation(codec_cfg, &chan_allocation);
+	ret = bt_audio_codec_cfg_get_chan_allocation(codec_cfg, &chan_allocation, false);
 	if (ret == 0) {
-		if (chan_allocation != BT_AUDIO_LOCATION_FRONT_LEFT) {
+		if (chan_allocation != BT_AUDIO_LOCATION_FRONT_CENTER) {
 			FAIL("Unexpected channel allocation: 0x%08X", chan_allocation);
 
 			return;
 		}
 
-		chan_cnt = count_bits(chan_allocation);
+		chan_cnt = bt_audio_get_chan_count(chan_allocation);
 	} else {
 		FAIL("Could not get subgroup channel allocation: %d\n", ret);
 
@@ -632,9 +641,9 @@ static int init(void)
 	bt_le_per_adv_sync_cb_register(&bap_pa_sync_cb);
 	bt_le_scan_cb_register(&bap_scan_cb);
 
-	UNSET_FLAG(broadcaster_found);
+	UNSET_FLAG(flag_broadcaster_found);
 	UNSET_FLAG(flag_base_received);
-	UNSET_FLAG(pa_synced);
+	UNSET_FLAG(flag_pa_synced);
 
 	for (size_t i = 0U; i < ARRAY_SIZE(streams); i++) {
 		streams[i] = bap_stream_from_audio_test_stream(&broadcast_sink_streams[i]);
@@ -702,7 +711,7 @@ static void test_scan_and_pa_sync(void)
 		return;
 	}
 
-	WAIT_FOR_FLAG(broadcaster_found);
+	WAIT_FOR_FLAG(flag_broadcaster_found);
 
 	printk("Broadcast source found, stopping scan\n");
 	err = bt_le_scan_stop();
@@ -720,7 +729,7 @@ static void test_scan_and_pa_sync(void)
 	}
 
 	printk("Waiting for PA sync\n");
-	WAIT_FOR_FLAG(pa_synced);
+	WAIT_FOR_FLAG(flag_pa_synced);
 }
 
 static void test_broadcast_sink_create(void)
@@ -758,12 +767,13 @@ static void test_broadcast_sink_create_inval(void)
 	}
 }
 
-static void test_broadcast_sync(void)
+static void test_broadcast_sync(bool encryption)
 {
 	int err;
 
 	printk("Syncing the sink\n");
-	err = bt_bap_broadcast_sink_sync(g_sink, bis_index_bitfield, streams, NULL);
+	err = bt_bap_broadcast_sink_sync(g_sink, bis_index_bitfield, streams,
+					 encryption ? BROADCAST_CODE : NULL);
 	if (err != 0) {
 		FAIL("Unable to sync the sink: %d\n", err);
 		return;
@@ -796,7 +806,7 @@ static void test_broadcast_sync_inval(void)
 		return;
 	}
 
-	bis_index = BIT(0);
+	bis_index = BT_ISO_BIS_INDEX_BIT(BT_ISO_BIS_INDEX_MAX + 1);
 	err = bt_bap_broadcast_sink_sync(g_sink, bis_index, streams, NULL);
 	if (err == 0) {
 		FAIL("bt_bap_broadcast_sink_sync did not fail with invalid BIS indexes: 0x%08X\n",
@@ -813,7 +823,7 @@ static void test_broadcast_sync_inval(void)
 	memcpy(tmp_streams, streams, sizeof(streams));
 	bis_index = 0U;
 	for (size_t i = 0U; i < ARRAY_SIZE(tmp_streams); i++) {
-		bis_index |= BIT(i + BT_ISO_BIS_INDEX_MIN);
+		bis_index |= BT_ISO_BIS_INDEX_BIT(i);
 	}
 
 	err = bt_bap_broadcast_sink_sync(g_sink, bis_index, tmp_streams, NULL);
@@ -825,7 +835,7 @@ static void test_broadcast_sync_inval(void)
 
 	bis_index = 0U;
 	for (size_t i = 0U; i < CONFIG_BT_BAP_BROADCAST_SNK_STREAM_COUNT + 1; i++) {
-		bis_index |= BIT(i + BT_ISO_BIS_INDEX_MIN);
+		bis_index |= BT_ISO_BIS_INDEX_BIT(i);
 	}
 
 	err = bt_bap_broadcast_sink_sync(g_sink, bis_index, tmp_streams, NULL);
@@ -898,7 +908,7 @@ static void test_start_adv(void)
 	};
 	int err;
 
-	/* Create a non-connectable non-scannable advertising set */
+	/* Create a connectable advertising set */
 	err = bt_le_ext_adv_create(BT_LE_EXT_ADV_CONN, NULL, &ext_adv);
 	if (err != 0) {
 		FAIL("Failed to create advertising set (err %d)\n", err);
@@ -944,7 +954,7 @@ static void test_common(void)
 	WAIT_FOR_FLAG(flag_syncable);
 
 	test_broadcast_sync_inval();
-	test_broadcast_sync();
+	test_broadcast_sync(false);
 
 	printk("Waiting for data\n");
 	WAIT_FOR_FLAG(flag_received);
@@ -968,7 +978,7 @@ static void test_main(void)
 	 * either way will work.
 	 */
 	printk("Waiting for PA disconnected\n");
-	WAIT_FOR_FLAG(pa_sync_lost);
+	WAIT_FOR_FLAG(flag_pa_sync_lost);
 
 	printk("Waiting for streams to be stopped\n");
 	for (size_t i = 0U; i < ARRAY_SIZE(streams); i++) {
@@ -986,7 +996,7 @@ static void test_sink_disconnect(void)
 	test_broadcast_stop();
 
 	/* Retry sync*/
-	test_broadcast_sync();
+	test_broadcast_sync(false);
 	test_broadcast_stop();
 
 	test_broadcast_delete_inval();
@@ -995,6 +1005,51 @@ static void test_sink_disconnect(void)
 	backchannel_sync_send_all(); /* let the broadcast source know it can stop */
 
 	PASS("Broadcast sink disconnect passed\n");
+}
+
+static void test_sink_encrypted(void)
+{
+	int err;
+
+	err = init();
+	if (err) {
+		FAIL("Init failed (err %d)\n", err);
+		return;
+	}
+
+	test_scan_and_pa_sync();
+
+	test_broadcast_sink_create();
+
+	printk("Broadcast source PA synced, waiting for BASE\n");
+	WAIT_FOR_FLAG(flag_base_received);
+	printk("BASE received\n");
+
+	printk("Waiting for BIG syncable\n");
+	WAIT_FOR_FLAG(flag_syncable);
+
+	test_broadcast_sync(true);
+
+	printk("Waiting for data\n");
+	WAIT_FOR_FLAG(flag_received);
+
+	backchannel_sync_send_all(); /* let other devices know we have received data */
+
+	backchannel_sync_send_all(); /* let the broadcast source know it can stop */
+
+	/* The order of PA sync lost and BIG Sync lost is irrelevant
+	 * and depend on timeout parameters. We just wait for PA first, but
+	 * either way will work.
+	 */
+	printk("Waiting for PA disconnected\n");
+	WAIT_FOR_FLAG(flag_pa_sync_lost);
+
+	printk("Waiting for streams to be stopped\n");
+	for (size_t i = 0U; i < ARRAY_SIZE(streams); i++) {
+		k_sem_take(&sem_stopped, K_FOREVER);
+	}
+
+	PASS("Broadcast sink passed\n");
 }
 
 static void broadcast_sink_with_assistant(void)
@@ -1025,7 +1080,7 @@ static void broadcast_sink_with_assistant(void)
 
 	printk("Waiting for BIG sync request\n");
 	WAIT_FOR_FLAG(flag_bis_sync_requested);
-	test_broadcast_sync();
+	test_broadcast_sync(false);
 
 	printk("Waiting for data\n");
 	WAIT_FOR_FLAG(flag_received);
@@ -1053,19 +1108,25 @@ static void broadcast_sink_with_assistant(void)
 static const struct bst_test_instance test_broadcast_sink[] = {
 	{
 		.test_id = "broadcast_sink",
-		.test_post_init_f = test_init,
+		.test_pre_init_f = test_init,
 		.test_tick_f = test_tick,
 		.test_main_f = test_main,
 	},
 	{
 		.test_id = "broadcast_sink_disconnect",
-		.test_post_init_f = test_init,
+		.test_pre_init_f = test_init,
 		.test_tick_f = test_tick,
 		.test_main_f = test_sink_disconnect,
 	},
 	{
+		.test_id = "broadcast_sink_encrypted",
+		.test_pre_init_f = test_init,
+		.test_tick_f = test_tick,
+		.test_main_f = test_sink_encrypted,
+	},
+	{
 		.test_id = "broadcast_sink_with_assistant",
-		.test_post_init_f = test_init,
+		.test_pre_init_f = test_init,
 		.test_tick_f = test_tick,
 		.test_main_f = broadcast_sink_with_assistant,
 	},

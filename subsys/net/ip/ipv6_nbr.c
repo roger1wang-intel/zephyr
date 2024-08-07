@@ -490,7 +490,7 @@ static void dbg_update_neighbor_lladdr_raw(uint8_t *new_lladdr,
 			net_sprint_ipv6_addr(dst),		\
 			net_pkt_iface(pkt),				\
 			net_if_get_by_iface(net_pkt_iface(pkt)));	\
-	} while (0)
+	} while (false)
 
 #define dbg_addr_recv(pkt_str, src, dst, pkt)	\
 	dbg_addr("Received", pkt_str, src, dst, pkt)
@@ -508,7 +508,7 @@ static void dbg_update_neighbor_lladdr_raw(uint8_t *new_lladdr,
 			net_sprint_ipv6_addr(target),	\
 			net_pkt_iface(pkt),				\
 			net_if_get_by_iface(net_pkt_iface(pkt)));	\
-	} while (0)
+	} while (false)
 
 #define dbg_addr_recv_tgt(pkt_str, src, dst, tgt, pkt)		\
 	dbg_addr_with_tgt("Received", pkt_str, src, dst, tgt, pkt)
@@ -950,10 +950,12 @@ try_send:
 	net_ipv6_nbr_unlock();
 
 #if defined(CONFIG_NET_IPV6_ND)
-	/* We need to send NS and wait for NA before sending the packet. */
+	/* We need to send NS and wait for NA before sending the packet. If the packet was
+	 * forwarded from another interface do not use the original source address.
+	 */
 	ret = net_ipv6_send_ns(net_pkt_iface(pkt), pkt,
-			       (struct in6_addr *)ip_hdr->src, NULL, nexthop,
-			       false);
+			       net_pkt_forwarding(pkt) ? NULL : (struct in6_addr *)ip_hdr->src,
+			       NULL, nexthop, false);
 	if (ret < 0) {
 		/* In case of an error, the NS send function will unref
 		 * the pkt.

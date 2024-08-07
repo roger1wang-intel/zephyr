@@ -17,12 +17,33 @@ LOG_MODULE_REGISTER(clock_control);
 static int mcux_ccm_on(const struct device *dev,
 				  clock_control_subsys_t sub_system)
 {
+	uint32_t clock_name = (uintptr_t)sub_system;
+	uint32_t peripheral, instance;
+
+	peripheral = (clock_name & IMX_CCM_PERIPHERAL_MASK);
+	instance = (clock_name & IMX_CCM_INSTANCE_MASK);
+	switch (peripheral) {
 #ifdef CONFIG_ETH_NXP_ENET
-	if ((uint32_t)sub_system == IMX_CCM_ENET_CLK) {
-		CLOCK_EnableClock(kCLOCK_Enet);
-	}
+
+#ifdef CONFIG_SOC_MIMX9352_A55
+#define ENET1G_CLOCK	kCLOCK_Enet1
+#else
+#define ENET_CLOCK	kCLOCK_Enet
+#define ENET1G_CLOCK	kCLOCK_Enet_1g
 #endif
-	return 0;
+#ifdef ENET_CLOCK
+	case IMX_CCM_ENET_CLK:
+		CLOCK_EnableClock(ENET_CLOCK);
+		return 0;
+#endif
+	case IMX_CCM_ENET1G_CLK:
+		CLOCK_EnableClock(ENET1G_CLOCK);
+		return 0;
+#endif
+	default:
+		(void)instance;
+		return 0;
+	}
 }
 
 static int mcux_ccm_off(const struct device *dev,
@@ -111,7 +132,12 @@ static int mcux_ccm_get_subsys_rate(const struct device *dev,
 
 #ifdef CONFIG_ETH_NXP_ENET
 	case IMX_CCM_ENET_CLK:
+	case IMX_CCM_ENET1G_CLK:
+#ifdef CONFIG_SOC_MIMX9352_A55
+		clock_root = kCLOCK_Root_WakeupAxi;
+#else
 		clock_root = kCLOCK_Root_Bus;
+#endif
 		break;
 #endif
 
@@ -136,6 +162,15 @@ static int mcux_ccm_get_subsys_rate(const struct device *dev,
 #ifdef CONFIG_COUNTER_MCUX_TPM
 	case IMX_CCM_TPM_CLK:
 		clock_root = kCLOCK_Root_Tpm1 + instance;
+		break;
+#endif
+
+#ifdef CONFIG_PWM_MCUX_QTMR
+	case IMX_CCM_QTMR1_CLK:
+	case IMX_CCM_QTMR2_CLK:
+	case IMX_CCM_QTMR3_CLK:
+	case IMX_CCM_QTMR4_CLK:
+		clock_root = kCLOCK_Root_Bus;
 		break;
 #endif
 

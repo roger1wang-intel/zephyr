@@ -42,6 +42,8 @@ zephyr_compile_definitions_ifdef(CONFIG_SOC_NRF54H20_CPURAD     NRF54H20_XXAA
                                                                 NRF_RADIOCORE)
 zephyr_compile_definitions_ifdef(CONFIG_SOC_NRF54H20_CPUPPR     NRF54H20_XXAA
                                                                 NRF_PPR)
+zephyr_compile_definitions_ifdef(CONFIG_SOC_NRF54H20_CPUFLPR    NRF54H20_XXAA
+                                                                NRF_FLPR)
 zephyr_compile_definitions_ifdef(CONFIG_SOC_NRF54L15_ENGA       NRF54L15_ENGA_XXAA)
 zephyr_compile_definitions_ifdef(CONFIG_SOC_NRF54L15_ENGA_CPUAPP NRF_APPLICATION)
 zephyr_compile_definitions_ifdef(CONFIG_SOC_NRF54L15_ENGA_CPUFLPR NRF_FLPR)
@@ -131,10 +133,6 @@ if(CONFIG_NRFX_TWI OR CONFIG_NRFX_TWIM)
   zephyr_library_sources(${SRC_DIR}/nrfx_twi_twim.c)
 endif()
 
-if (CONFIG_NRF_GRTC_TIMER AND CONFIG_NRF_GRTC_TIMER_CLOCK_MANAGEMENT)
-  zephyr_compile_definitions(NRF_GRTC_HAS_EXTENDED=1)
-endif()
-
 # Inject HAL "CONFIG_NFCT_PINS_AS_GPIOS" definition if user requests to
 # configure the NFCT pins as GPIOS. Do the same with "CONFIG_GPIO_AS_PINRESET"
 # to configure the reset GPIO as nRESET. This way, the HAL will take care of
@@ -144,7 +142,10 @@ dt_nodelabel(uicr_path NODELABEL "uicr")
 if(DEFINED uicr_path)
   dt_prop(nfct_pins_as_gpios PATH ${uicr_path} PROPERTY "nfct-pins-as-gpios")
   if(${nfct_pins_as_gpios})
-    zephyr_library_compile_definitions(CONFIG_NFCT_PINS_AS_GPIOS)
+    zephyr_library_compile_definitions(
+      CONFIG_NFCT_PINS_AS_GPIOS
+      NRF_CONFIG_NFCT_PINS_AS_GPIOS
+    )
   endif()
 
   dt_prop(gpio_as_nreset PATH ${uicr_path} PROPERTY "gpio-as-nreset")
@@ -195,6 +196,7 @@ mdk_svd_ifdef(CONFIG_SOC_NRF5340_CPUAPP       nrf5340_application.svd)
 mdk_svd_ifdef(CONFIG_SOC_NRF5340_CPUNET       nrf5340_network.svd)
 mdk_svd_ifdef(CONFIG_SOC_NRF54H20_CPUAPP      nrf54h20_application.svd)
 mdk_svd_ifdef(CONFIG_SOC_NRF54H20_CPUPPR      nrf54h20_ppr.svd)
+mdk_svd_ifdef(CONFIG_SOC_NRF54H20_CPUFLPR     nrf54h20_flpr.svd)
 mdk_svd_ifdef(CONFIG_SOC_NRF54H20_CPURAD      nrf54h20_radiocore.svd)
 mdk_svd_ifdef(CONFIG_SOC_NRF54L15_ENGA_CPUAPP nrf54l15_enga_application.svd)
 mdk_svd_ifdef(CONFIG_SOC_NRF54L15_ENGA_CPUFLPR nrf54l15_enga_flpr.svd)
